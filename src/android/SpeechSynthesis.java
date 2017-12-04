@@ -60,7 +60,7 @@ public class SpeechSynthesis extends CordovaPlugin implements OnInitListener, On
                         voiceCode = voice.optString("voiceURI", null);
                     }
                 }
-                if (voiceCode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                if (voiceCode != null && this.voiceList!=null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     for (Voice v : this.voiceList) {
                         if (voiceCode.equals(v.getName())) {
                             mTts.setVoice(v);
@@ -169,34 +169,57 @@ public class SpeechSynthesis extends CordovaPlugin implements OnInitListener, On
         //List<TextToSpeech.EngineInfo> engines = mTts.getEngines();
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            this.voiceList = mTts.getVoices();
-            for (Voice v : this.voiceList) {
-                Locale locale = v.getLocale();
-                voice = new JSONObject();
-                try {
-                    voice.put("voiceURI", v.getName());
-                    voice.put("name", locale.getDisplayLanguage(locale) + " " + locale.getDisplayCountry(locale));
-                    //voice.put("features", v.getFeatures());
-                    //voice.put("displayName", locale.getDisplayLanguage(locale) + " " + locale.getDisplayCountry(locale));
-                    voice.put("lang", locale.getLanguage()+"-"+locale.getCountry());
-                    voice.put("localService", !v.isNetworkConnectionRequired());
-                    voice.put("quality", v.getQuality());
-                    voice.put("default", false);
-                } catch (JSONException e) {
-                    // should never happen
-                }
-                voices.put(voice);
+            try{
+                this.voiceList = mTts.getVoices();
+            }catch (NullPointerException exception) {
+                // ignore it, go on and use the other method, this is a Samsung bug
+                // this happens on Galaxy Note3 (hlte) Android 5.0
+            }catch (IllegalArgumentException exception) {
+                // ignore it, go on and use the other method, this is a Samsung bug
+                // this happens on Galaxy S6, API Level 22 (Android 5.1) and Galaxy Note Edge (tblteatt) Android 5.0
+                // java.lang.IllegalArgumentException: Invalid int: "OS"
+                //                at android.os.Parcel.readException(Parcel.java:1550)
+                //                at android.os.Parcel.readException(Parcel.java:1499)
+                //                at android.speech.tts.ITextToSpeechService$Stub$Proxy.getVoices(ITextToSpeechService.java:796)
             }
-        }else{
-            //Iterator<Locale> list = voiceList.iterator();
+            if (this.voiceList!=null){
+                for (Voice v : this.voiceList) {
+                    Locale locale = v.getLocale();
+                    voice = new JSONObject();
+                    try {
+                        voice.put("voiceURI", v.getName());
+                        voice.put("name", locale.getDisplayLanguage(locale) + " " + locale.getDisplayCountry(locale));
+                        //voice.put("features", v.getFeatures());
+                        //voice.put("displayName", locale.getDisplayLanguage(locale) + " " + locale.getDisplayCountry(locale));
+                        voice.put("lang", locale.getLanguage()+"-"+locale.getCountry());
+                        voice.put("localService", !v.isNetworkConnectionRequired());
+                        voice.put("quality", v.getQuality());
+                        voice.put("default", false);
+                    } catch (JSONException e) {
+                        // should never happen
+                    }
+                    voices.put(voice);
+                }
+            }
+        }
+
+        if (this.voiceList==null){
+            // use older method
             Locale[] list = Locale.getAvailableLocales();
             Locale locale;
-            //while (list.hasNext()) {
-            //    locale = list.next();
             for (int i = 0; i < list.length; i++) {
                 locale = list[i];
                 voice = new JSONObject();
-                if (mTts.isLanguageAvailable(locale) > 0) {     // ie LANG_COUNTRY_AVAILABLE or LANG_COUNTRY_VAR_AVAILABLE
+                int langAvail = 0;
+                try{
+                    langAvail = mTts.isLanguageAvailable(locale);
+                } catch (IllegalArgumentException e) {
+                // workaround samsung bug
+                // java.lang.IllegalArgumentException: Invalid int: "OS"
+                // It seems this exception is thrown when the engine doesn't support voices. Just add a catch and don't use legacy approaches for these engines.
+                // http://developer.samsung.com/forum/board/thread/view.do?boardName=SDK&messageId=295016
+                }
+                if (langAvail > 0) {     // ie LANG_COUNTRY_AVAILABLE or LANG_COUNTRY_VAR_AVAILABLE
                     try {
                         voice.put("voiceURI", locale.getLanguage()+"-"+locale.getCountry());
                         voice.put("name", locale.getDisplayLanguage(locale) + " " + locale.getDisplayCountry(locale));
@@ -253,7 +276,7 @@ public class SpeechSynthesis extends CordovaPlugin implements OnInitListener, On
      * @param status
      */
     public void onInit(int status) {
-        if (mTts != null && status == TextToSpeech.SUCCESS) {
+        if (status == TextToSpeech.SUCCESS) {
             state = SpeechSynthesis.STARTED;
             getVoices(this.startupCallbackContext);
             
