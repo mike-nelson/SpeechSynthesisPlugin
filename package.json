@@ -8,10 +8,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/macdonst/SpeechSynthesisPlugin.git"
+    "url": "git+https://github.com/mike-nelson/SpeechSynthesisPlugin.git"
   },
   "bugs": {
-    "url": "https://github.com/macdonst/SpeechSynthesisPlugin/issues"
+    "url": "https://github.com/mike-nelson/SpeechSynthesisPlugin/issues"
   },
   "cordova": {
     "id": "phonegap-plugin-speech-synthesis",
